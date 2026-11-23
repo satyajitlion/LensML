@@ -5,11 +5,6 @@ def quantile_loss(q, y_true, y_pred):
     """
     Quantile (pinball) loss.
     q=0.5 gives median regression, reduces skew errors.
-
-    q < 0.5 --> targets lower quartile if model is overpredicting
-    q > 0.5 --> upper quartile if model is underpredicting (my case)
-
-    https://towardsdatascience.com/quantile-loss-and-quantile-regression-b0689c13f54d/
     """
     error = y_true - y_pred
     return tf.reduce_mean(tf.maximum(q * error, (q - 1) * error))
@@ -30,7 +25,6 @@ class MinimumEpochEarlyStopping(tf.keras.callbacks.Callback):
         current_value = logs.get(self.monitor)
         
         if epoch < self.min_epochs:
-            # Don't check for improvement in first min_epochs
             return
         
         if current_value < self.best_value:
@@ -51,110 +45,12 @@ class MinimumEpochEarlyStopping(tf.keras.callbacks.Callback):
         if self.best_weights is not None:
             self.model.set_weights(self.best_weights)
 
-# ==================== MODEL CREATION FUNCTIONS ====================
-''' normal version without that many layers
-def create_single_model(loss_type='quantile', quantile=0.5):
-    """Model for single image lenses (5 inputs, 3 outputs)"""
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(5,)),
-        
-        tf.keras.layers.Dense(16, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.1),
-        
-        tf.keras.layers.Dense(8, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.1),
-        
-        tf.keras.layers.Dense(3, activation='linear')
-    ])
-    
-    if loss_type == 'quantile':
-        loss = lambda yt, yp: quantile_loss(quantile, yt, yp)
-    else:
-        loss = 'mse'
-    
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss=loss,
-        metrics=['mae']
-    )
-    return model
-
-
-def create_double_model(loss_type='quantile', quantile=0.5):
-    """Model for double image lenses (8 inputs, 6 outputs)"""
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(8,)),
-        
-        tf.keras.layers.Dense(64, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.2),
-        
-        tf.keras.layers.Dense(128, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.2),
-        
-        tf.keras.layers.Dense(64, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.2),
-        
-        tf.keras.layers.Dense(6, activation='linear')
-    ])
-    
-    if loss_type == 'quantile':
-        loss = lambda yt, yp: quantile_loss(quantile, yt, yp)
-    else:
-        loss = 'mse'
-    
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
-        loss=loss,
-        metrics=['mae']
-    )
-    return model
-
-
-def create_quad_model(loss_type='quantile', quantile=0.5):
-    """Model for quad image lenses (14 inputs, 12 outputs)"""
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(14,)),
-        
-        tf.keras.layers.Dense(32, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.1),
-        
-        tf.keras.layers.Dense(16, use_bias=False),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.1),
-        
-        tf.keras.layers.Dense(12, activation='linear')
-    ])
-    
-    if loss_type == 'quantile':
-        loss = lambda yt, yp: quantile_loss(quantile, yt, yp)
-    else:
-        loss = 'mse'
-    
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-        loss=loss,
-        metrics=['mae']
-    )
-    return model'''
+# ==================== MODEL CREATION (updated input shapes) ====================
 
 def create_single_model(loss_type='mse', quantile=0.6):
-    """Model for single image lenses (5 inputs, 3 outputs)
-    Architecture change: 4 hidden layers instead of 2 I believe."""
+    """Model for single image lenses (4 inputs: img(2) + z(2), outputs: pot(1)+deflec(2)=3)"""
     model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(5,)),
+        tf.keras.layers.Input(shape=(4,)),
 
         tf.keras.layers.Dense(32),
         tf.keras.layers.BatchNormalization(),
@@ -185,64 +81,16 @@ def create_single_model(loss_type='mse', quantile=0.6):
         loss = 'mse'
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),  # slightly lower lr for deeper net
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),
         loss=loss,
         metrics=['mae']
     )
     return model
 
-
 def create_double_model(loss_type='mse', quantile=0.6):
-    """Model for double image lenses (8 inputs, 6 outputs)
-    Architecture Change: 5 hidden layers, wider in the middle."""
-    
-    '''
+    """Model for double image lenses (7 inputs: img(4) + time(1) + z(2), outputs: pot(2)+deflec(4)=6)"""
     model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(8,)),
-
-        tf.keras.layers.Dense(128),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.0),
-
-        tf.keras.layers.Dense(256),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.0),
-
-        tf.keras.layers.Dense(256),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.0),
-
-        tf.keras.layers.Dense(128),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.0),
-
-        tf.keras.layers.Dense(64),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(0.0),
-
-        tf.keras.layers.Dense(6, activation='linear')
-        
-    ])
-    if loss_type == 'quantile':
-        loss = lambda yt, yp: quantile_loss(quantile, yt, yp)
-    else:
-        loss = 'mse'
-
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.0003),  # lower lr for deeper network
-        loss=loss,
-        metrics=['mae']
-    )
-    return model '''
-
-    """Minimal double model with 2 hidden layers (64)"""
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(8,)),
+        tf.keras.layers.Input(shape=(7,)),
         
         tf.keras.layers.Dense(32, use_bias=False),
         tf.keras.layers.BatchNormalization(),
@@ -263,18 +111,16 @@ def create_double_model(loss_type='mse', quantile=0.6):
         loss = 'mse'
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), # tweak with lr --> 0.1 to 0.001
+        optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
         loss=loss,
         metrics=['mae']
     )
     return model
 
-
 def create_quad_model(loss_type='mse', quantile=0.6):
-    """Model for quad image lenses (14 inputs, 12 outputs)
-    Architecture change: 4 hidden layers, wider than the original."""
+    """Model for quad image lenses (13 inputs: img(8) + time(3) + z(2), outputs: pot(4)+deflec(8)=12)"""
     model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(14,)),
+        tf.keras.layers.Input(shape=(13,)),
 
         tf.keras.layers.Dense(64),
         tf.keras.layers.BatchNormalization(),
@@ -311,36 +157,15 @@ def create_quad_model(loss_type='mse', quantile=0.6):
     )
     return model
 
-# ==================== TRAINING FUNCTIONS (AUGMENTATION DISABLED) ====================
+# ==================== TRAINING FUNCTIONS (updated shape checks) ====================
 
 def train_model_with_roto_translation_singles(model, x, y, rotation_prob=0.3, translation_prob=0.3, translation_scale=0.1):
-    """Training function for singles (augmentation disabled for now)"""
-    if x.shape[1] != 5:
-        raise ValueError(f"Single model expects 5 input features, got {x.shape[1]}")
+    if x.shape[1] != 4:
+        raise ValueError(f"Single model expects 4 input features, got {x.shape[1]}")
     
     early_stopping = MinimumEpochEarlyStopping(min_epochs=10, patience=10, monitor='val_loss')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6, verbose=1)
     
-    # ---- Augmentation disabled ----
-    # print(f"Applying rotation and translation augmentation for singles (prob={rotation_prob})...")
-    # x_augmented = x.copy()
-    # for i in range(len(x)):
-    #     positions = x[i, :2].reshape(1, 2)
-    #     if np.any(positions != 0):
-    #         if np.random.random() < rotation_prob:
-    #             angle = np.random.uniform(0, 2 * np.pi)
-    #             cos_a, sin_a = np.cos(angle), np.sin(angle)
-    #             rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    #             positions = positions @ rotation_matrix.T
-    #         if np.random.random() < translation_prob:
-    #             translation = np.random.uniform(-translation_scale, translation_scale, size=2)
-    #             positions = positions + translation
-    #         x_augmented[i, :2] = positions.reshape(2)
-    # print("Augmentation complete. Starting training...")
-    # history = model.fit(x=x_augmented, y=y, validation_split=0.1, batch_size=16, epochs=100, shuffle=True, verbose=1, callbacks=[early_stopping, reduce_lr])
-    # ---------------------------------
-    
-    # Use original x (no augmentation)
     history = model.fit(
         x=x, 
         y=y,
@@ -360,33 +185,12 @@ def train_model_with_roto_translation_singles(model, x, y, rotation_prob=0.3, tr
     return history
 
 def train_model_with_roto_translation_doubles(model, x, y, rotation_prob=0.5, translation_prob=0.5, translation_scale=0.1):
-    """Training function for doubles (augmentation disabled for now)"""
-    if x.shape[1] != 8:
-        raise ValueError(f"Double model expects 8 input features, got {x.shape[1]}")
+    if x.shape[1] != 7:
+        raise ValueError(f"Double model expects 7 input features, got {x.shape[1]}")
     
     early_stopping = MinimumEpochEarlyStopping(min_epochs=5, patience=15, monitor='val_loss')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-7, verbose=1)
     
-    # ---- Augmentation disabled ----
-    # print("Applying rotation and translation augmentation for doubles...")
-    # x_augmented = x.copy()
-    # for i in range(len(x)):
-    #     positions = x[i, :4].reshape(2, 2)
-    #     if np.any(positions != 0):
-    #         if np.random.random() < rotation_prob:
-    #             angle = np.random.uniform(0, 2 * np.pi)
-    #             cos_a, sin_a = np.cos(angle), np.sin(angle)
-    #             rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    #             positions = positions @ rotation_matrix.T
-    #         if np.random.random() < translation_prob:
-    #             translation = np.random.uniform(-translation_scale, translation_scale, size=2)
-    #             positions = positions + translation
-    #         x_augmented[i, :4] = positions.reshape(4)
-    # print("Augmentation complete. Starting training...")
-    # history = model.fit(x=x_augmented, y=y, validation_split=0.1, batch_size=64, epochs=200, shuffle=True, verbose=1, callbacks=[early_stopping, reduce_lr])
-    # ---------------------------------
-    
-    # Use original x (no augmentation)
     history = model.fit(
         x=x, 
         y=y,
@@ -405,33 +209,12 @@ def train_model_with_roto_translation_doubles(model, x, y, rotation_prob=0.5, tr
     return history
 
 def train_model_with_roto_translation_quads(model, x, y, rotation_prob=0.3, translation_prob=0.3, translation_scale=0.1):
-    """Training function for quads (augmentation disabled for now)"""
-    if x.shape[1] != 14:
-        raise ValueError(f"Quad model expects 14 input features, got {x.shape[1]}")
+    if x.shape[1] != 13:
+        raise ValueError(f"Quad model expects 13 input features, got {x.shape[1]}")
     
     early_stopping = MinimumEpochEarlyStopping(min_epochs=10, patience=10, monitor='val_loss')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-6, verbose=1)
     
-    # ---- Augmentation disabled ----
-    # print(f"Applying rotation and translation augmentation for quads (prob={rotation_prob})...")
-    # x_augmented = x.copy()
-    # for i in range(len(x)):
-    #     positions = x[i, :8].reshape(4, 2)
-    #     if np.any(positions != 0):
-    #         if np.random.random() < rotation_prob:
-    #             angle = np.random.uniform(0, 2 * np.pi)
-    #             cos_a, sin_a = np.cos(angle), np.sin(angle)
-    #             rotation_matrix = np.array([[cos_a, -sin_a], [sin_a, cos_a]])
-    #             positions = positions @ rotation_matrix.T
-    #         if np.random.random() < translation_prob:
-    #             translation = np.random.uniform(-translation_scale, translation_scale, size=2)
-    #             positions = positions + translation
-    #         x_augmented[i, :8] = positions.reshape(8)
-    # print("Augmentation complete. Starting training...")
-    # history = model.fit(x=x_augmented, y=y, validation_split=0.1, batch_size=32, epochs=100, shuffle=True, verbose=1, callbacks=[early_stopping, reduce_lr])
-    # ---------------------------------
-    
-    # Use original x (no augmentation)
     history = model.fit(
         x=x, 
         y=y,
@@ -509,7 +292,7 @@ def train_with_cross_validation(model_creator, x_data, y_data, model_type='singl
     
     return histories
 
-# ==================== ANALYSIS FUNCTIONS ====================
+# ==================== ANALYSIS FUNCTIONS (unchanged) ====================
 
 def analyze_training_history(history, model_name):
     """Analyze if model actually learned"""
@@ -568,37 +351,36 @@ def compare_models_performance(models_dict, test_data_dict):
 
 def train_model_with_rotation(model, x, y, augmentation_prob=0.5):
     """Backward compatibility (augmentation disabled)"""
-    # Calls the appropriate function but with rotation prob 0 (augmentation disabled internally anyway)
-    if x.shape[1] == 14:
+    if x.shape[1] == 13:
         return train_model_with_roto_translation_quads(model, x, y, rotation_prob=0.0, translation_prob=0.0)
-    elif x.shape[1] == 8:
+    elif x.shape[1] == 7:
         return train_model_with_roto_translation_doubles(model, x, y, rotation_prob=0.0, translation_prob=0.0)
-    elif x.shape[1] == 5:
+    elif x.shape[1] == 4:
         return train_model_with_roto_translation_singles(model, x, y, rotation_prob=0.0, translation_prob=0.0)
     else:
         raise ValueError(f"Unknown input shape: {x.shape[1]}")
 
 def train_model_with_translation(model, x, y, augmentation_prob=0.5):
     """Backward compatibility (augmentation disabled)"""
-    if x.shape[1] == 14:
+    if x.shape[1] == 13:
         return train_model_with_roto_translation_quads(model, x, y, rotation_prob=0.0, translation_prob=0.0)
-    elif x.shape[1] == 8:
+    elif x.shape[1] == 7:
         return train_model_with_roto_translation_doubles(model, x, y, rotation_prob=0.0, translation_prob=0.0)
-    elif x.shape[1] == 5:
+    elif x.shape[1] == 4:
         return train_model_with_roto_translation_singles(model, x, y, rotation_prob=0.0, translation_prob=0.0)
     else:
         raise ValueError(f"Unknown input shape: {x.shape[1]}")
 
 def train_model(model, x, y):
     """Original training function without augmentation"""
-    early_stopping = MinimumEpochEarlyStopping(min_epochs=5, patience=100, monitor='val_loss') # original patience = 15.
+    early_stopping = MinimumEpochEarlyStopping(min_epochs=5, patience=15, monitor='val_loss')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-7, verbose=1)
     
-    if x.shape[1] == 5:
+    if x.shape[1] == 4:
         batch_size = 16
-    elif x.shape[1] == 8:
+    elif x.shape[1] == 7:
         batch_size = 64
-    else:
+    else:   # 13 for quads
         batch_size = 32
     
     history = model.fit(
@@ -606,7 +388,7 @@ def train_model(model, x, y):
         y=y,
         validation_split=0.1,
         batch_size=batch_size,
-        epochs=1000, # changes from 200 for testing
+        epochs=200,
         shuffle=True, 
         verbose=1,
         callbacks=[early_stopping, reduce_lr]
@@ -623,12 +405,12 @@ def create_model():
     print("Warning: create_model() creates a quad model. Use specific functions instead.")
     return create_quad_model()
 
-#--------------simpler models without augmentation -------------------#
+#-------------- simpler models without augmentation -------------------#
 
 def create_simple_double_model(loss_type='mse', quantile=0.6):
-    """Minimal double model with 2 hidden layers (64)"""
+    """Minimal double model with 2 hidden layers (64) – input shape 7"""
     model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(8,)),
+        tf.keras.layers.Input(shape=(7,)),
         
         tf.keras.layers.Dense(32, use_bias=False),
         tf.keras.layers.BatchNormalization(),
@@ -655,14 +437,14 @@ def create_simple_double_model(loss_type='mse', quantile=0.6):
     )
     return model
 
-def train_simple_model(model, x, y):
+def train_simple_model_legacy(model, x, y):   # renamed to avoid conflict with the existing train_simple_model
     """Original training function without augmentation"""
     early_stopping = MinimumEpochEarlyStopping(min_epochs=5, patience=15, monitor='val_loss')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-10, verbose=1)
     
-    if x.shape[1] == 5:
+    if x.shape[1] == 4:
         batch_size = 16
-    elif x.shape[1] == 8:
+    elif x.shape[1] == 7:
         batch_size = 64
     else:
         batch_size = 32
