@@ -36,9 +36,6 @@ Gravitational lens time delays provide one of the most direct methods for measur
 | **AmarelOutput/** | Output folder created by `generateMockLens.py` on the cluster. Contains parallelized arrays (e.g., `valShear_0.npy`, `valShear_1.npy`, …). |
 | **combined_arrays/** | Output folder created by `combineMockLens.py` after merging the parallelized arrays. Contains the final datasets: `valShear.npy`, `valEllip.npy`, `valBoth.npy`. |
 | **local_gen_test/** | Small local test folder used to verify `generateMockLens.py` produces the expected output. Contains test arrays generated during development. |
-| **meeting_notes/** | Research meeting notes from Dr. Keeton (contains meeting summaries, discussions, and action items). |
-| **Notes/** | Personal notes on mathematics and coding related to neural networks (e.g., derivations, architecture notes, debugging logs). |
-| **research_log/** | (Old, to be removed) Research log documenting daily work. No longer actively maintained. |
 | **requirements.txt** | List of required Python libraries; install with `pip install -r requirements.txt`. Includes scientific packages (NumPy, SciPy, astropy, matplotlib, etc.) and machine learning libraries (TensorFlow, Keras, scikit‑learn). |
 | **Honors in Astronomy Project Outline.pdf** | Project proposal and documentation from September 2024 to present (originally for undergraduate honors, now continued as a post‑baccalaureate researcher). |
 | **README.md** | This file. |
